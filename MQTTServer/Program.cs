@@ -20,10 +20,12 @@ if ((bool.TryParse(Environment.GetEnvironmentVariable("USE_UI"), out var useUi) 
 builder.WebHost.UseKestrel(options =>
 {
     options.ListenAnyIP(1883, o => o.UseMqtt());
-    if (useUi || Debugger.IsAttached)
+    if (useUi || )
     {
-        options.ListenAnyIP(5000);
-        options.ListenAnyIP(5001, o => o.UseHttps());
+        if (Debugger.IsAttached)
+        {
+            options.ListenAnyIP(5001, o => o.UseHttps());
+        }
     }
 });
 builder.Services.AddHostedMqttServer(
