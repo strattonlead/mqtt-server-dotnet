@@ -20,7 +20,7 @@ if ((bool.TryParse(Environment.GetEnvironmentVariable("USE_UI"), out var useUi) 
 builder.WebHost.UseKestrel(options =>
 {
     options.ListenAnyIP(1883, o => o.UseMqtt());
-    if (useUi || )
+    if (useUi)
     {
         if (Debugger.IsAttached)
         {
