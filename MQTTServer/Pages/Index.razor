@@ -1,0 +1,60 @@
+﻿@page "/"
+@using MQTTnet.Server
+
+<PageTitle>Index</PageTitle>
+
+<TableTemplate @ref="_table" Items="@_clients" Context="client">
+    <TableHeader>
+        <th>ID</th>
+        <th>Protocol</th>
+        <th>Username</th>
+        <th>User ID</th>
+        <th>Tenant ID</th>
+        <th>BytesSent</th>
+        <th>Bytes Received</th>
+    </TableHeader>
+    <RowTemplate>
+        <td>@client.Id</td>
+        <td>@client.ProtocolVersion</td>
+        <td>@client.Session.Items["username"]</td>
+        <td>@client.Session.Items["user_id"]</td>
+        <td>@client.Session.Items["tenant_id"]</td>
+        <td>@client.BytesSent</td>
+        <td>@client.BytesReceived</td>
+    </RowTemplate>
+</TableTemplate>
+
+<p></p>
+
+@code {
+    private TableTemplate<MqttClientStatus> _table;
+    private IList<MqttClientStatus> _clients;
+
+    [Inject]
+    private MqttServer _server { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await _updateClientListAsync();
+        _server.ClientConnectedAsync += async e => { 
+            await _updateClientListAsync(); 
+        };
+        _server.ClientDisconnectedAsync += async e => { 
+            await _updateClientListAsync(); 
+        };
+        _server.ClientAcknowledgedPublishPacketAsync += async e =>
+        {
+            await _updateClientListAsync();
+        };
+        _server.InterceptingPublishAsync += async e =>
+        {
+            await _updateClientListAsync();
+        };
+    }
+
+    private async Task _updateClientListAsync() 
+    {
+        _clients = await _server.GetClientsAsync();
+        await InvokeAsync(() => { StateHasChanged(); });
+    }
+}

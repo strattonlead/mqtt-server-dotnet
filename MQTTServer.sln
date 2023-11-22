@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32804.467
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MQTTServer", "MQTTServer\MQTTServer.csproj", "{5F49EE99-D201-47A0-8A5A-FE86B86A3B33}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MQTTServer", "MQTTServer\MQTTServer.csproj", "{5F49EE99-D201-47A0-8A5A-FE86B86A3B33}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MQTTServer.Backend", "MQTTServer.Backend\MQTTServer.Backend.csproj", "{1E7C5D38-9396-4BA4-968E-B128B230ADDE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MQTTServer.Backend", "MQTTServer.Backend\MQTTServer.Backend.csproj", "{1E7C5D38-9396-4BA4-968E-B128B230ADDE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

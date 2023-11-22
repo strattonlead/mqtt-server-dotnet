@@ -22,8 +22,4 @@
     <ProjectReference Include="..\MQTTServer.Backend\MQTTServer.Backend.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\" />
-  </ItemGroup>
-
 </Project>

@@ -7,15 +7,24 @@ using MQTTServer.Backend;
 using MQTTServer.Services;
 using PubSubServer.Redis;
 using System;
-using System.Linq;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorPages();
+if ((bool.TryParse(Environment.GetEnvironmentVariable("USE_UI"), out var useUi) && useUi) || Debugger.IsAttached)
+{
+    builder.Services.AddRazorPages();
+    builder.Services.AddServerSideBlazor();
+}
+
 builder.WebHost.UseKestrel(options =>
 {
     options.ListenAnyIP(1883, o => o.UseMqtt());
-    options.ListenAnyIP(5000);
+    if (useUi || Debugger.IsAttached)
+    {
+        options.ListenAnyIP(5000);
+        options.ListenAnyIP(5001, o => o.UseHttps());
+    }
 });
 builder.Services.AddHostedMqttServer(
     optionsBuilder =>
@@ -64,34 +73,14 @@ if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRe
 var app = builder.Build();
 _MqttEventHandler.Instance.ServiceProvider = app.Services;
 
-// Configure the HTTP request pipeline.
-//if (!app.Environment.IsDevelopment())
-//{
-//    app.UseExceptionHandler("/Error");
-//    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-//    app.UseHsts();
-//}
-
-//app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-//app.UseRouting();
-
-//app.UseAuthorization();
-
-
 app.UseRouting();
-app.MapRazorPages();
-
-app.UseEndpoints(
-    endpoints =>
-    {
-        endpoints.MapConnectionHandler<MqttConnectionHandler>(
-            "/mqtt",
-            httpConnectionDispatcherOptions => httpConnectionDispatcherOptions.WebSockets.SubProtocolSelector =
-                protocolList =>
-                protocolList.FirstOrDefault() ?? string.Empty);
-    });
+if (useUi || Debugger.IsAttached)
+{
+    app.MapBlazorHub();
+    app.MapFallbackToPage("/_Host");
+}
 
 app.UseMqttServer(
     server =>
