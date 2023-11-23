@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using MQTTnet.AspNetCore;
 using MQTTServer.Backend;
 using MQTTServer.Services;
@@ -24,6 +25,11 @@ builder.WebHost.UseKestrel(options =>
     options.ListenAnyIP(1883, o => o.UseMqtt());
     if (useUi)
     {
+        if (builder.Environment.IsProduction())
+        {
+            options.ListenAnyIP(80);
+            options.ListenAnyIP(443, o => o.UseHttps());
+        }
         if (Debugger.IsAttached)
         {
             options.ListenAnyIP(5001, o => o.UseHttps());
