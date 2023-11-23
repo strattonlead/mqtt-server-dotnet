@@ -2,11 +2,11 @@
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using MQTTServer.Backend;
-using MQTTServer.Backend.Entities;
 using PubSubServer.Client;
 using System;
 using System.Collections;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace MQTTServer.Services
@@ -14,15 +14,26 @@ namespace MQTTServer.Services
     public class MqttEventHandler
     {
         private readonly IPubSubClient _pubSub;
+        private readonly IQueueClient _queue;
         private readonly IMqttUserStore _userStore;
-        private readonly UserProvider _userProvider;
-        public UserEntity User => _userProvider.User;
+        private readonly bool _publishRedisPubSub;
+        private readonly bool _publishRedisQueue;
 
         public MqttEventHandler(IServiceProvider serviceProvider)
         {
             _pubSub = serviceProvider.GetService<IPubSubClient>();
             _userStore = serviceProvider.GetRequiredService<IMqttUserStore>();
-            _userProvider = serviceProvider.GetRequiredService<UserProvider>();
+            //_userProvider = serviceProvider.GetRequiredService<UserProvider>();
+            bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_QUEUE"), out var useRedisQueue);
+            bool.TryParse(Environment.GetEnvironmentVariable("PUBLISH_REDIS_PUBSUB"), out var publishRedisPubSub);
+            bool.TryParse(Environment.GetEnvironmentVariable("PUBLISH_REDIS_QUEUE"), out var publishRedisQueue);
+            if (useRedisQueue)
+            {
+                _queue = serviceProvider.GetRequiredService<IQueueClient>();
+            }
+
+            _publishRedisPubSub = publishRedisPubSub;
+            _publishRedisQueue = publishRedisQueue;
         }
 
         #region MqttEventHandler
@@ -70,26 +81,39 @@ namespace MQTTServer.Services
         {
             var func = async (InterceptingPublishEventArgs e) =>
             {
-                if (_pubSub != null && e.ApplicationMessage.PayloadSegment.Count <= 8388608)
+                if (_pubSub != null && e.ApplicationMessage.PayloadSegment.Count <= 8388608 && _publishRedisPubSub)
                 {
                     await _pubSub?.PublishAsync("mqtt/publish", new
                     {
                         e.ClientId,
                         e.ApplicationMessage.Topic,
-                        Payload = e.ApplicationMessage.PayloadSegment.ToArray(),
+                        Payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment.ToArray()),
+                        e.ApplicationMessage.QualityOfServiceLevel,
+                        e.SessionItems
+                    });
+                }
+
+                if (_queue != null && _publishRedisQueue)
+                {
+                    await _queue.PushAsync("mqtt/publish", new
+                    {
+                        e.ClientId,
+                        e.ApplicationMessage.Topic,
+                        Payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment.ToArray()),
                         e.ApplicationMessage.QualityOfServiceLevel,
                         e.SessionItems
                     });
                 }
             };
 
-            if (User.PublishTopics.Select(x => x.Topic).Contains(eventArgs.ApplicationMessage.Topic))
+            var user = SessionUser.FromSession(eventArgs.SessionItems);
+            if (user.PublishTopics.Contains(eventArgs.ApplicationMessage.Topic))
             {
                 eventArgs.ProcessPublish = true;
                 await func(eventArgs);
             }
 
-            if (User.PublishTopics.Any(x => TopicChecker.Regex(x.Topic, eventArgs.ApplicationMessage.Topic)))
+            if (user.PublishTopics.Any(x => TopicChecker.Regex(x, eventArgs.ApplicationMessage.Topic)))
             {
                 eventArgs.ProcessPublish = true;
                 await func(eventArgs);
@@ -141,13 +165,14 @@ namespace MQTTServer.Services
 
         public Task OnInterceptingSubscriptionAsync(InterceptingSubscriptionEventArgs eventArgs)
         {
-            if (User.SubscribeTopics.Select(x => x.Topic).Contains(eventArgs.TopicFilter.Topic))
+            var user = SessionUser.FromSession(eventArgs.SessionItems);
+            if (user.SubscribeTopics.Select(x => x).Contains(eventArgs.TopicFilter.Topic))
             {
                 eventArgs.ProcessSubscription = true;
                 return Task.CompletedTask;
             }
 
-            if (User.SubscribeTopics.Any(x => TopicChecker.Regex(x.Topic, eventArgs.TopicFilter.Topic)))
+            if (user.SubscribeTopics.Any(x => TopicChecker.Regex(x, eventArgs.TopicFilter.Topic)))
             {
                 eventArgs.ProcessSubscription = true;
                 return Task.CompletedTask;
@@ -173,7 +198,7 @@ namespace MQTTServer.Services
                     await _pubSub?.PublishAsync("mqtt/invaliduser", new
                     {
                         eventArgs.ClientId,
-                        eventArgs.Username,
+                        eventArgs.UserName,
                         eventArgs.SessionItems
                     });
 
@@ -188,7 +213,7 @@ namespace MQTTServer.Services
                 await _pubSub?.PublishAsync("mqtt/invalidpassword", new
                 {
                     eventArgs.ClientId,
-                    eventArgs.Username,
+                    eventArgs.UserName,
                     eventArgs.SessionItems
                 });
                 eventArgs.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
@@ -201,11 +226,46 @@ namespace MQTTServer.Services
             {
                 eventArgs.SessionItems.Add("tenant_id", user.TenantId.Value);
             }
+            eventArgs.SessionItems.Add("subscribe_topics", user.SubscribeTopics.Select(x => x.Topic).ToArray());
+            eventArgs.SessionItems.Add("publish_topics", user.PublishTopics.Select(x => x.Topic).ToArray());
 
             Console.WriteLine($"Client '{eventArgs.ClientId}' wants to connect. Accepting!");
         }
 
         #endregion
+    }
+
+    public class SessionUser
+    {
+        public long? UserId { get; set; }
+        public long? TenantId { get; set; }
+        public string Username { get; set; }
+        public string[] PublishTopics { get; set; }
+        public string[] SubscribeTopics { get; set; }
+
+        public static SessionUser FromSession(IDictionary sessionItems)
+        {
+            long? userId = null;
+            long? tenantId = null;
+            if (long.TryParse(sessionItems["user_id"]?.ToString(), out var _userId))
+            {
+                userId = _userId;
+            }
+
+            if (long.TryParse(sessionItems["tenant_id"]?.ToString(), out var _tenantId))
+            {
+                tenantId = _tenantId;
+            }
+
+            return new SessionUser()
+            {
+                UserId = userId,
+                TenantId = tenantId,
+                Username = sessionItems["username"]?.ToString(),
+                SubscribeTopics = sessionItems["subscribe_topics"] as string[] ?? new string[0],
+                PublishTopics = sessionItems["publish_topics"] as string[] ?? new string[0]
+            };
+        }
     }
 
     internal class _MqttEventHandler

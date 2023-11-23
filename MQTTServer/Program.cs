@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MQTTnet.AspNetCore;
 using MQTTServer.Backend;
 using MQTTServer.Services;
+using PubSubServer.Client;
 using PubSubServer.Redis;
 using System;
 using System.Diagnostics;
@@ -16,6 +17,7 @@ if ((bool.TryParse(Environment.GetEnvironmentVariable("USE_UI"), out var useUi) 
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
 }
+bool.TryParse(Environment.GetEnvironmentVariable("USE_POSTGRES"), out var usePostgres);
 
 builder.WebHost.UseKestrel(options =>
 {
@@ -44,9 +46,9 @@ builder.Services.AddScoped<TenantProvider>();
 builder.Services.AddScoped<IMqttUserStore, UserStore>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (bool.TryParse(Environment.GetEnvironmentVariable("USE_MSSQL"), out var useMsSql) && useMsSql)
+    if (usePostgres)
     {
-        options.UseSqlServer(Environment.GetEnvironmentVariable("MSSQL_CONNECTION_STRING"));
+        options.UseNpgsql(Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING"));
     }
     else
     {
@@ -56,7 +58,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRedis) && useRedis)
 {
-    builder.Services.AddRedisPubSubService(options =>
+    builder.Services.AddRedisServices(options =>
     {
         options.UseIsActive(true);
 
@@ -69,11 +71,26 @@ if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRe
         var redisConnectionString = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
         options.UseConnectionString(redisConnectionString);
     });
+    builder.Services.AddPubSubClient();
+
+    if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_QUEUE"), out var useRedisQueue) && useRedisQueue)
+    {
+        builder.Services.AddQueueClient();
+    }
 }
 
 
 var app = builder.Build();
 _MqttEventHandler.Instance.ServiceProvider = app.Services;
+
+if (usePostgres)
+{
+    using (var scope = app.Services.CreateScope())
+    using (var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>())
+    {
+        dbContext.Database.Migrate();
+    }
+}
 
 app.UseStaticFiles();
 

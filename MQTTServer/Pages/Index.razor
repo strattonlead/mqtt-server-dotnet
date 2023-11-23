@@ -1,5 +1,7 @@
 ﻿@page "/"
 @using MQTTnet.Server
+@using PubSubServer.Client
+@using PubSubServer.Redis
 
 <PageTitle>Index</PageTitle>
 
@@ -24,14 +26,18 @@
     </RowTemplate>
 </TableTemplate>
 
-<p></p>
+<p>@_lastMessage</p>
 
 @code {
     private TableTemplate<MqttClientStatus> _table;
     private IList<MqttClientStatus> _clients;
+    private string _lastMessage;
 
     [Inject]
     private MqttServer _server { get; set; }
+
+    [Inject]
+    private IPubSubClient _pubSub { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -50,6 +56,11 @@
         {
             await _updateClientListAsync();
         };
+
+        await _pubSub.SubscribeAsync("mqtt/publish", async s => { 
+            _lastMessage = s;
+            await InvokeAsync(() => { StateHasChanged(); });
+        });
     }
 
     private async Task _updateClientListAsync() 

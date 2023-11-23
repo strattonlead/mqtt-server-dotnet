@@ -1,4 +1,5 @@
-﻿using MQTTServer.Backend.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using MQTTServer.Backend.Entities;
 using System;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,62 +9,57 @@ namespace MQTTServer.Backend
 {
     public class UserStore : IMqttUserStore
     {
-        //private readonly ApplicationDbContext _dbContext;
-        //public UserStore(ApplicationDbContext dbContext)
-        //{
-        //    _dbContext = dbContext;
-        //}
+        private readonly ApplicationDbContext _dbContext;
+        public UserStore(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
 
         #region IMqttUserStore
 
         public bool CanAuthenticate(UserEntity mqttUser, string password)
         {
-            return true;
-            //return mqttUser.Password == _hash(password);
+            return mqttUser.Password == _hash(password);
         }
 
         public async Task<bool> CanAuthenticateAsync(string username, string password)
         {
-            return true;
-            //var hash = _hash(password);
-            //return await _dbContext.MqttUsers.AnyAsync(x => x.UserName == username && x.Password == hash);
+            var hash = _hash(password);
+            return await _dbContext.MqttUsers.AnyAsync(x => x.UserName == username && x.Password == hash);
         }
 
         public async Task<UserEntity> FindByUsernameAsync(string username)
         {
-            return User;
-            //return await _dbContext.MqttUsers.FirstOrDefaultAsync(x => x.UserName == username);
+            var user = await _dbContext.MqttUsers.FirstOrDefaultAsync(x => x.UserName == username);
+            return _loadTopics(user);
         }
 
         public UserEntity FindById(long? userId)
         {
-            return User;
-            //return _dbContext.MqttUsers.Find(userId);
+            var user = _dbContext.MqttUsers.Find(userId);
+            return _loadTopics(user);
         }
 
         #endregion
 
         #region Helpers
 
-        UserEntity User => new UserEntity()
+        private UserEntity _loadTopics(UserEntity user)
         {
-            Id = 1,
-            UserName = "user",
-            Password = _hash("pass"),
-            TenantId = 1,
-            PublishTopics = new System.Collections.Generic.List<PublishTopicEntity>()
+            if (user != null)
             {
-                new PublishTopicEntity(){
-                    Id = 1, UserId = 1, Topic = "mytopic"
+                if (user.PublishTopics == null)
+                {
+                    _dbContext.Entry(user).Collection(x => x.PublishTopics).Load();
                 }
-            },
-            SubscribeTopics = new System.Collections.Generic.List<SubscribeTopicEntity>()
-            {
-                new SubscribeTopicEntity(){
-                    Id = 1, UserId = 1, Topic = "mytopic"
+
+                if (user.SubscribeTopics == null)
+                {
+                    _dbContext.Entry(user).Collection(x => x.SubscribeTopics).Load();
                 }
             }
-        };
+            return user;
+        }
 
         private string _hash(string s)
         {
