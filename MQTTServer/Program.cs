@@ -28,7 +28,6 @@ builder.WebHost.UseKestrel(options =>
         if (builder.Environment.IsProduction())
         {
             options.ListenAnyIP(80);
-            options.ListenAnyIP(443, o => o.UseHttps());
         }
         if (Debugger.IsAttached)
         {
