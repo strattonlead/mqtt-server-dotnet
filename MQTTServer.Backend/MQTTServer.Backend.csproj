@@ -12,7 +12,7 @@
       <EnablePackageValidation>true</EnablePackageValidation>
       <GenerateDocumentationFile>True</GenerateDocumentationFile>
       <NoWarn>$(NoWarn);CS1591</NoWarn>
-      <PackageTags>Redis</PackageTags>
+      <PackageTags>Mqtt, Postgres, Efcore</PackageTags>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
       <Description>Mqtt Backend entities and context</Description>
       <PackageProjectUrl>https://github.com/strattonlead/mqtt-server-dotnet</PackageProjectUrl>

@@ -1,8 +1,7 @@
 # PubSubServer
 
-Client for Redis publish
+Backend Entities for MQTTServer
 
 # Set env variables
 
-REDIS_CONNECTION_STRING=your redis connection string
-REDIS_PUBSUB_CHANNEL=redis
+Add the context to yout application
