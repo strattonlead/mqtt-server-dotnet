@@ -39,8 +39,11 @@ builder.Services.AddHostedMqttServer(
     optionsBuilder =>
     {
         optionsBuilder.WithDefaultEndpoint();
-        //optionsBuilder.WithEncryptionCertificate(new CertificateProvider());
-        //optionsBuilder.WithEncryptedEndpoint();
+        if (bool.TryParse(Environment.GetEnvironmentVariable("USE_CERT"), out var useCert) && useCert)
+        {
+            optionsBuilder.WithEncryptionCertificate(new CertificateProvider());
+            optionsBuilder.WithEncryptedEndpoint();
+        }
     });
 builder.Services.AddMqttConnectionHandler();
 builder.Services.AddConnections();
