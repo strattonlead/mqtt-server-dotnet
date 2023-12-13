@@ -276,18 +276,18 @@ namespace MQTTServer.Services
     {
         #region Properties
 
-        private static _MqttEventHandler instance;
-        public static _MqttEventHandler Instance { get { return instance; } }
-        public static _MqttEventHandler Initialize(IServiceProvider serviceProvider)
-        {
-            if (instance != null)
-            {
-                return instance;
-            }
+        //private static _MqttEventHandler instance;
+        //public static _MqttEventHandler Instance { get { return instance; } }
+        //public static _MqttEventHandler Initialize(IServiceProvider serviceProvider)
+        //{
+        //    if (instance != null)
+        //    {
+        //        return instance;
+        //    }
 
-            instance = new _MqttEventHandler(serviceProvider);
-            return instance;
-        }
+        //    instance = new _MqttEventHandler(serviceProvider);
+        //    return instance;
+        //}
 
         private IServiceProvider _serviceProvider { get; set; }
         private readonly bool _useRedisAck;
@@ -297,8 +297,9 @@ namespace MQTTServer.Services
 
         #region Constructor
 
-        private _MqttEventHandler(IServiceProvider serviceProvider)
+        public _MqttEventHandler(IServiceProvider serviceProvider)
         {
+            _serviceProvider = serviceProvider;
             if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_ACK"), out var useRedisAck) && useRedisAck)
             {
                 _useRedisAck = true;

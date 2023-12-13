@@ -47,7 +47,7 @@ builder.Services.AddHostedMqttServer(
     });
 builder.Services.AddMqttConnectionHandler();
 builder.Services.AddConnections();
-builder.Services.AddSingleton(_MqttEventHandler.Instance);
+builder.Services.AddSingleton<_MqttEventHandler>();
 builder.Services.AddScoped<MqttEventHandler>();
 builder.Services.AddScoped<UserProvider>();
 builder.Services.AddScoped<TenantProvider>();
@@ -89,7 +89,6 @@ if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRe
 
 
 var app = builder.Build();
-_MqttEventHandler.Initialize(app.Services);
 
 if (usePostgres)
 {
@@ -101,6 +100,7 @@ if (usePostgres)
 }
 
 app.UseStaticFiles();
+var eventHandler = app.Services.GetRequiredService<_MqttEventHandler>();
 
 app.UseRouting();
 if (useUi || Debugger.IsAttached)
@@ -112,17 +112,17 @@ if (useUi || Debugger.IsAttached)
 app.UseMqttServer(
     server =>
     {
-        server.ValidatingConnectionAsync += _MqttEventHandler.Instance.ValidateConnectionAsync;
-        server.ClientConnectedAsync += _MqttEventHandler.Instance.OnClientConnectedAsync;
-        server.ClientDisconnectedAsync += _MqttEventHandler.Instance.OnClientDisconnectedAsync;
-        server.ClientAcknowledgedPublishPacketAsync += _MqttEventHandler.Instance.OnClientAcknowledgedPublishPacketAsync;
-        server.InterceptingPublishAsync += _MqttEventHandler.Instance.OnInterceptingPublishAsync;
-        server.LoadingRetainedMessageAsync += _MqttEventHandler.Instance.OnLoadingRetainedMessageAsync;
-        server.RetainedMessageChangedAsync += _MqttEventHandler.Instance.OnRetainedMessageChangedAsync;
-        server.RetainedMessagesClearedAsync += _MqttEventHandler.Instance.OnRetainedMessagesClearedAsync;
-        server.ClientSubscribedTopicAsync += _MqttEventHandler.Instance.OnClientSubscribedTopicAsync;
-        server.ClientUnsubscribedTopicAsync += _MqttEventHandler.Instance.OnClientUnsubscribedTopicAsync;
-        server.InterceptingSubscriptionAsync += _MqttEventHandler.Instance.OnInterceptingSubscriptionAsync;
+        server.ValidatingConnectionAsync += eventHandler.ValidateConnectionAsync;
+        server.ClientConnectedAsync += eventHandler.OnClientConnectedAsync;
+        server.ClientDisconnectedAsync += eventHandler.OnClientDisconnectedAsync;
+        server.ClientAcknowledgedPublishPacketAsync += eventHandler.OnClientAcknowledgedPublishPacketAsync;
+        server.InterceptingPublishAsync += eventHandler.OnInterceptingPublishAsync;
+        server.LoadingRetainedMessageAsync += eventHandler.OnLoadingRetainedMessageAsync;
+        server.RetainedMessageChangedAsync += eventHandler.OnRetainedMessageChangedAsync;
+        server.RetainedMessagesClearedAsync += eventHandler.OnRetainedMessagesClearedAsync;
+        server.ClientSubscribedTopicAsync += eventHandler.OnClientSubscribedTopicAsync;
+        server.ClientUnsubscribedTopicAsync += eventHandler.OnClientUnsubscribedTopicAsync;
+        server.InterceptingSubscriptionAsync += eventHandler.OnInterceptingSubscriptionAsync;
     });
 
 app.Run();
