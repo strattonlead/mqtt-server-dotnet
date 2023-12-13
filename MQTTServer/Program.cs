@@ -89,7 +89,7 @@ if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRe
 
 
 var app = builder.Build();
-_MqttEventHandler.Instance.ServiceProvider = app.Services;
+_MqttEventHandler.Initialize(app.Services);
 
 if (usePostgres)
 {

@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using MQTTnet;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using MQTTServer.Backend;
+using MQTTServer.Client;
 using PubSubServer.Client;
 using System;
 using System.Collections;
@@ -95,7 +97,7 @@ namespace MQTTServer.Services
 
                 if (_queue != null && _publishRedisQueue)
                 {
-                    await _queue.PushAsync("mqtt/publish", new
+                    await _queue.PushAsync("mqtt/queue", new
                     {
                         e.ClientId,
                         e.ApplicationMessage.Topic,
@@ -111,12 +113,14 @@ namespace MQTTServer.Services
             {
                 eventArgs.ProcessPublish = true;
                 await func(eventArgs);
+                return;
             }
 
             if (user.PublishTopics.Any(x => TopicChecker.Regex(x, eventArgs.ApplicationMessage.Topic)))
             {
                 eventArgs.ProcessPublish = true;
                 await func(eventArgs);
+                return;
             }
 
             eventArgs.ProcessPublish = false;
@@ -270,11 +274,40 @@ namespace MQTTServer.Services
 
     internal class _MqttEventHandler
     {
-        private static _MqttEventHandler instance = new _MqttEventHandler();
-        public static _MqttEventHandler Instance { get { return instance; } }
-        private _MqttEventHandler() { }
-        public IServiceProvider ServiceProvider { get; set; }
+        #region Properties
 
+        private static _MqttEventHandler instance;
+        public static _MqttEventHandler Instance { get { return instance; } }
+        public static _MqttEventHandler Initialize(IServiceProvider serviceProvider)
+        {
+            if (instance != null)
+            {
+                return instance;
+            }
+
+            instance = new _MqttEventHandler(serviceProvider);
+            return instance;
+        }
+
+        private IServiceProvider _serviceProvider { get; set; }
+        private readonly bool _useRedisAck;
+        private readonly IPubSubClient _pubSub;
+
+        #endregion
+
+        #region Constructor
+
+        private _MqttEventHandler(IServiceProvider serviceProvider)
+        {
+            if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_ACK"), out var useRedisAck) && useRedisAck)
+            {
+                _useRedisAck = true;
+                _pubSub = serviceProvider.GetRequiredService<IPubSubClient>();
+                _initAck();
+            }
+        }
+
+        #endregion
 
         #region Events
 
@@ -380,7 +413,7 @@ namespace MQTTServer.Services
 
         private async Task _handleAsync(Func<MqttEventHandler, Task> action, long? userId = null, long? tenantId = null)
         {
-            using (var scope = ServiceProvider.CreateScope())
+            using (var scope = _serviceProvider.CreateScope())
             {
                 if (userId.HasValue)
                 {
@@ -398,6 +431,31 @@ namespace MQTTServer.Services
                 await action(handler);
             }
         }
+
+        #endregion
+
+        #region Redis ACK
+
+        private void _initAck()
+        {
+            _pubSub.SubscribeAsync<AckMessage>("mqtt/ack", async ackMessage =>
+            {
+                var mqttServer = _serviceProvider.GetRequiredService<MqttServer>();
+
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic(ackMessage.Topic)
+                    .WithPayload(ackMessage.PackageId)
+                    .Build();
+
+                await mqttServer.InjectApplicationMessage(
+                    new InjectedMqttApplicationMessage(message)
+                    {
+                        SenderClientId = ackMessage.ClientId
+                    });
+
+            }).Wait(TimeSpan.FromSeconds(10));
+        }
+
 
         #endregion
     }
