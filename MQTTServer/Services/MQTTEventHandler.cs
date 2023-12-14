@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using MQTTnet;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using MQTTServer.Backend;
-using MQTTServer.Client;
 using PubSubServer.Client;
+using PubSubServer.Redis;
 using System;
 using System.Collections;
 using System.Linq;
@@ -15,7 +14,7 @@ namespace MQTTServer.Services
 {
     public class MqttEventHandler
     {
-        private readonly IPubSubClient _pubSub;
+        private readonly IPubSubService _pubSub;
         private readonly IQueueClient _queue;
         private readonly IMqttUserStore _userStore;
         private readonly bool _publishRedisPubSub;
@@ -25,7 +24,7 @@ namespace MQTTServer.Services
 
         public MqttEventHandler(IServiceProvider serviceProvider)
         {
-            _pubSub = serviceProvider.GetService<IPubSubClient>();
+            _pubSub = serviceProvider.GetService<IPubSubService>();
             _userStore = serviceProvider.GetRequiredService<IMqttUserStore>();
             //_userProvider = serviceProvider.GetRequiredService<UserProvider>();
             bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_QUEUE"), out var useRedisQueue);
@@ -129,7 +128,7 @@ namespace MQTTServer.Services
             };
 
             var user = SessionUser.FromSession(eventArgs.SessionItems);
-            if (user.PublishTopics.Contains(eventArgs.ApplicationMessage.Topic))
+            if (user.PublishTopics.Contains(eventArgs.ApplicationMessage.Topic) || user.IsSystem)
             {
                 eventArgs.ProcessPublish = true;
                 await func(eventArgs);
@@ -275,6 +274,7 @@ namespace MQTTServer.Services
         public long? UserId { get; set; }
         public long? TenantId { get; set; }
         public string Username { get; set; }
+        public bool IsSystem { get; set; }
         public string[] PublishTopics { get; set; }
         public string[] SubscribeTopics { get; set; }
 
@@ -296,6 +296,7 @@ namespace MQTTServer.Services
             {
                 UserId = userId,
                 TenantId = tenantId,
+                IsSystem = sessionItems.Count == 0,
                 Username = sessionItems["username"]?.ToString(),
                 SubscribeTopics = sessionItems["subscribe_topics"] as string[] ?? new string[0],
                 PublishTopics = sessionItems["publish_topics"] as string[] ?? new string[0]
@@ -307,22 +308,7 @@ namespace MQTTServer.Services
     {
         #region Properties
 
-        //private static _MqttEventHandler instance;
-        //public static _MqttEventHandler Instance { get { return instance; } }
-        //public static _MqttEventHandler Initialize(IServiceProvider serviceProvider)
-        //{
-        //    if (instance != null)
-        //    {
-        //        return instance;
-        //    }
-
-        //    instance = new _MqttEventHandler(serviceProvider);
-        //    return instance;
-        //}
-
         private IServiceProvider _serviceProvider { get; set; }
-        private readonly bool _useRedisAck;
-        private readonly IPubSubClient _pubSub;
 
         #endregion
 
@@ -331,12 +317,6 @@ namespace MQTTServer.Services
         public _MqttEventHandler(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
-            if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS_ACK"), out var useRedisAck) && useRedisAck)
-            {
-                _useRedisAck = true;
-                _pubSub = serviceProvider.GetRequiredService<IPubSubClient>();
-                _initAck();
-            }
         }
 
         #endregion
@@ -463,31 +443,6 @@ namespace MQTTServer.Services
                 await action(handler);
             }
         }
-
-        #endregion
-
-        #region Redis ACK
-
-        private void _initAck()
-        {
-            _pubSub.SubscribeAsync<AckMessage>("mqtt/ack", async ackMessage =>
-            {
-                var mqttServer = _serviceProvider.GetRequiredService<MqttServer>();
-
-                var message = new MqttApplicationMessageBuilder()
-                    .WithTopic(ackMessage.Topic)
-                    .WithPayload(ackMessage.PackageId)
-                    .Build();
-
-                await mqttServer.InjectApplicationMessage(
-                    new InjectedMqttApplicationMessage(message)
-                    {
-                        SenderClientId = ackMessage.ClientId
-                    });
-
-            }).Wait(TimeSpan.FromSeconds(10));
-        }
-
 
         #endregion
     }

@@ -86,7 +86,7 @@ if (bool.TryParse(Environment.GetEnvironmentVariable("USE_REDIS"), out var useRe
         builder.Services.AddQueueClient();
     }
 }
-
+builder.Services.AddHostedService<RedisAckBackgroundService>();
 
 var app = builder.Build();
 

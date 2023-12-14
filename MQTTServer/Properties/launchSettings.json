@@ -18,7 +18,10 @@
         "PROCESS_PUBSUB_TOPICS": "#",
         "PROCESS_QUEUE_TOPICS": "#",
         "USE_REDIS_QUEUE": "true",
-        "PUBLISH_REDIS_QUEUE": "true"
+        "PUBLISH_REDIS_QUEUE": "true",
+        "USE_REDIS_ACK": "true",
+        "REDIS_DEFAULT_CHANNEL": "pubsub",
+        "REDIS_PUBSUB_CHANNEL": "pubsub"
       }
     },
     "IIS Express": {

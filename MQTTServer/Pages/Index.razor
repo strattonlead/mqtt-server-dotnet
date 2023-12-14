@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using MQTTnet
 @using MQTTnet.Server
 @using PubSubServer.Client
 @using PubSubServer.Redis
@@ -26,6 +27,7 @@
     </RowTemplate>
 </TableTemplate>
 
+<button class="btn btn-primary" @onclick="e => _sendMessage()">Inject</button>
 <p>@_lastMessage</p>
 
 @code {
@@ -37,7 +39,7 @@
     private MqttServer _server { get; set; }
 
     [Inject]
-    private IPubSubClient _pubSub { get; set; }
+    private IPubSubService _pubSub { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -67,5 +69,18 @@
     {
         _clients = await _server.GetClientsAsync();
         await InvokeAsync(() => { StateHasChanged(); });
+    }
+
+    private async Task _sendMessage() {
+        var message = new MqttApplicationMessageBuilder()
+                         .WithTopic("hello")
+                         .WithPayload("my message!")
+                         .Build();
+
+        await _server.InjectApplicationMessage(
+            new InjectedMqttApplicationMessage(message)
+                {
+                    SenderClientId = "mqtt-explorer-fb95a991"
+                });
     }
 }
