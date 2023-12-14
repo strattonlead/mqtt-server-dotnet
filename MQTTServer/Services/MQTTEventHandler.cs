@@ -20,6 +20,8 @@ namespace MQTTServer.Services
         private readonly IMqttUserStore _userStore;
         private readonly bool _publishRedisPubSub;
         private readonly bool _publishRedisQueue;
+        private readonly string[] _pubSubTopics;
+        private readonly string[] _queueTopics;
 
         public MqttEventHandler(IServiceProvider serviceProvider)
         {
@@ -36,6 +38,16 @@ namespace MQTTServer.Services
 
             _publishRedisPubSub = publishRedisPubSub;
             _publishRedisQueue = publishRedisQueue;
+
+            if (publishRedisPubSub)
+            {
+                _pubSubTopics = Environment.GetEnvironmentVariable("PROCESS_PUBSUB_TOPICS").Split(" ");
+            }
+
+            if (publishRedisQueue)
+            {
+                _queueTopics = Environment.GetEnvironmentVariable("PROCESS_QUEUE_TOPICS").Split(" ");
+            }
         }
 
         #region MqttEventHandler
@@ -83,7 +95,12 @@ namespace MQTTServer.Services
         {
             var func = async (InterceptingPublishEventArgs e) =>
             {
-                if (_pubSub != null && e.ApplicationMessage.PayloadSegment.Count <= 8388608 && _publishRedisPubSub)
+                // hier noch ein filter rein machen welche topics gequeued werden
+
+                if ((_pubSub != null && e.ApplicationMessage.PayloadSegment.Count <= 8388608 && _publishRedisPubSub)
+                && ((_pubSubTopics == null || !_pubSubTopics.Any())
+                    || (_pubSubTopics != null && _pubSubTopics.Any() && _pubSubTopics.Contains(e.ApplicationMessage.Topic))
+                    || (_pubSubTopics != null && _pubSubTopics.Any() && _pubSubTopics.Any(x => TopicChecker.Regex(x, e.ApplicationMessage.Topic)))))
                 {
                     await _pubSub?.PublishAsync("mqtt/publish", new
                     {
@@ -95,7 +112,10 @@ namespace MQTTServer.Services
                     });
                 }
 
-                if (_queue != null && _publishRedisQueue)
+                if ((_queue != null && _publishRedisQueue)
+                && ((_queueTopics == null || !_queueTopics.Any())
+                    || (_queueTopics != null && _queueTopics.Any() && _queueTopics.Contains(e.ApplicationMessage.Topic))
+                    || (_queueTopics != null && _queueTopics.Any() && _queueTopics.Any(x => TopicChecker.Regex(x, e.ApplicationMessage.Topic)))))
                 {
                     await _queue.PushAsync("mqtt/queue", new
                     {
@@ -222,6 +242,17 @@ namespace MQTTServer.Services
                 });
                 eventArgs.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
                 return;
+            }
+
+            if (user.CustomProperties != null)
+            {
+                foreach (var key in user.CustomProperties.Keys)
+                {
+                    if (!eventArgs.SessionItems.Contains(key))
+                    {
+                        eventArgs.SessionItems.Add(key, user.CustomProperties[key]);
+                    }
+                }
             }
 
             eventArgs.SessionItems.Add("user_id", user.Id);

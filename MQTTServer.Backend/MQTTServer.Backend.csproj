@@ -5,8 +5,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
       <PackageId>CreateIf.MqttServer.Backend</PackageId>
-      <Version>1.0.2</Version>
-      <PackageVersion>1.0.2</PackageVersion>
+      <Version>1.0.3</Version>
+      <PackageVersion>1.0.3</PackageVersion>
       <Authors>Arndt Bieberstein</Authors>
       <Company>createIF Labs GmbH</Company>
       <EnablePackageValidation>true</EnablePackageValidation>
@@ -28,6 +28,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.25" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.25" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.22" />
       <PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1">
           <PrivateAssets>all</PrivateAssets>

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MQTTServer.Backend
@@ -42,7 +43,7 @@ namespace MQTTServer.Backend
             return _loadTopics(user);
         }
 
-        public async Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null)
+        public async Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null, IDictionary<string, string> customProperties = null, CancellationToken cancellationToken = default)
         {
             var user = new MqttUserEntity()
             {
@@ -50,21 +51,22 @@ namespace MQTTServer.Backend
                 PublishTopics = publishTopics?.Select(x => new PublishTopicEntity() { Topic = x }).ToList(),
                 SubscribeTopics = subscribeTopics?.Select(x => new SubscribeTopicEntity() { Topic = x }).ToList(),
                 Password = _hash(password),
-                TenantId = tenantId
+                TenantId = tenantId,
+                CustomProperties = customProperties.ToDictionary(x => x.Key, x => x.Value)
             };
 
             _dbContext.Add(user);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return user;
         }
 
-        public async Task DeleteAsync(long id)
+        public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
         {
             var user = FindById(id);
             if (user != null)
             {
                 _dbContext.Remove(user);
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
 
@@ -107,7 +109,7 @@ namespace MQTTServer.Backend
         Task<MqttUserEntity> FindByUsernameAsync(string username);
         bool CanAuthenticate(MqttUserEntity mqttUser, string password);
         Task<bool> CanAuthenticateAsync(string username, string password);
-        Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null);
-        Task DeleteAsync(long id);
+        Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null, IDictionary<string, string> customProperties = null, CancellationToken cancellationToken = default);
+        Task DeleteAsync(long id, CancellationToken cancellationToken = default);
     }
 }

@@ -95,7 +95,11 @@ if (usePostgres)
     using (var scope = app.Services.CreateScope())
     using (var dbContext = scope.ServiceProvider.GetRequiredService<MqttDbContext>())
     {
-        dbContext.Database.Migrate();
+        try
+        {
+            dbContext.Database.Migrate();
+        }
+        catch { }
     }
 }
 
