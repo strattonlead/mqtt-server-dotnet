@@ -16,7 +16,7 @@ namespace MQTTServer.Backend
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(MqttDbContext).Assembly);
         }
 
-        public DbSet<UserEntity> MqttUsers { get; set; }
+        public DbSet<MqttUserEntity> MqttUsers { get; set; }
         public DbSet<PublishTopicEntity> PublishTopics { get; set; }
         public DbSet<SubscribeTopicEntity> SubscribeTopics { get; set; }
     }

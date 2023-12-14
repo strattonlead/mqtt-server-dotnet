@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MQTTServer.Backend.Entities
 {
-    public class UserEntity
+    public class MqttUserEntity
     {
         [Key]
         public long Id { get; set; }
@@ -16,9 +16,9 @@ namespace MQTTServer.Backend.Entities
         public List<SubscribeTopicEntity> SubscribeTopics { get; set; }
     }
 
-    public class UserEntityTypeConfiguration : IEntityTypeConfiguration<UserEntity>
+    public class UserEntityTypeConfiguration : IEntityTypeConfiguration<MqttUserEntity>
     {
-        public void Configure(EntityTypeBuilder<UserEntity> builder)
+        public void Configure(EntityTypeBuilder<MqttUserEntity> builder)
         {
             builder.HasMany(x => x.PublishTopics)
                 .WithOne(x => x.User)

@@ -1,23 +1,25 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MQTTServer.Backend.Entities;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace MQTTServer.Backend
 {
-    public class UserStore : IMqttUserStore
+    public class MqttUserStore : IMqttUserStore
     {
         private readonly MqttDbContext _dbContext;
-        public UserStore(MqttDbContext dbContext)
+        public MqttUserStore(MqttDbContext dbContext)
         {
             _dbContext = dbContext;
         }
 
         #region IMqttUserStore
 
-        public bool CanAuthenticate(UserEntity mqttUser, string password)
+        public bool CanAuthenticate(MqttUserEntity mqttUser, string password)
         {
             return mqttUser.Password == _hash(password);
         }
@@ -28,23 +30,49 @@ namespace MQTTServer.Backend
             return await _dbContext.MqttUsers.AnyAsync(x => x.UserName == username && x.Password == hash);
         }
 
-        public async Task<UserEntity> FindByUsernameAsync(string username)
+        public async Task<MqttUserEntity> FindByUsernameAsync(string username)
         {
             var user = await _dbContext.MqttUsers.FirstOrDefaultAsync(x => x.UserName == username);
             return _loadTopics(user);
         }
 
-        public UserEntity FindById(long? userId)
+        public MqttUserEntity FindById(long? userId)
         {
             var user = _dbContext.MqttUsers.Find(userId);
             return _loadTopics(user);
+        }
+
+        public async Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null)
+        {
+            var user = new MqttUserEntity()
+            {
+                UserName = username,
+                PublishTopics = publishTopics?.Select(x => new PublishTopicEntity() { Topic = x }).ToList(),
+                SubscribeTopics = subscribeTopics?.Select(x => new SubscribeTopicEntity() { Topic = x }).ToList(),
+                Password = _hash(password),
+                TenantId = tenantId
+            };
+
+            _dbContext.Add(user);
+            await _dbContext.SaveChangesAsync();
+            return user;
+        }
+
+        public async Task DeleteAsync(long id)
+        {
+            var user = FindById(id);
+            if (user != null)
+            {
+                _dbContext.Remove(user);
+                await _dbContext.SaveChangesAsync();
+            }
         }
 
         #endregion
 
         #region Helpers
 
-        private UserEntity _loadTopics(UserEntity user)
+        private MqttUserEntity _loadTopics(MqttUserEntity user)
         {
             if (user != null)
             {
@@ -75,9 +103,11 @@ namespace MQTTServer.Backend
 
     public interface IMqttUserStore
     {
-        UserEntity FindById(long? userId);
-        Task<UserEntity> FindByUsernameAsync(string username);
-        bool CanAuthenticate(UserEntity mqttUser, string password);
+        MqttUserEntity FindById(long? userId);
+        Task<MqttUserEntity> FindByUsernameAsync(string username);
+        bool CanAuthenticate(MqttUserEntity mqttUser, string password);
         Task<bool> CanAuthenticateAsync(string username, string password);
+        Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null);
+        Task DeleteAsync(long id);
     }
 }

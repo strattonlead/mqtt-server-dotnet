@@ -51,7 +51,7 @@ builder.Services.AddSingleton<_MqttEventHandler>();
 builder.Services.AddScoped<MqttEventHandler>();
 builder.Services.AddScoped<UserProvider>();
 builder.Services.AddScoped<TenantProvider>();
-builder.Services.AddScoped<IMqttUserStore, UserStore>();
+builder.Services.AddScoped<IMqttUserStore, MqttUserStore>();
 builder.Services.AddDbContext<MqttDbContext>(options =>
 {
     if (usePostgres)

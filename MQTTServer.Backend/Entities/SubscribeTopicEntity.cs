@@ -7,7 +7,7 @@ namespace MQTTServer.Backend.Entities
     {
         public long Id { get; set; }
         public long UserId { get; set; }
-        public UserEntity User { get; set; }
+        public MqttUserEntity User { get; set; }
         public string Topic { get; set; }
     }
 }

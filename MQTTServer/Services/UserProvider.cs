@@ -12,8 +12,8 @@ namespace MQTTServer.Services
         {
             _userStore = serviceProvider.GetRequiredService<IMqttUserStore>();
         }
-        private UserEntity _user;
-        public UserEntity User
+        private MqttUserEntity _user;
+        public MqttUserEntity User
         {
             get
             {
