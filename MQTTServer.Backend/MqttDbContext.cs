@@ -5,15 +5,15 @@ using System;
 
 namespace MQTTServer.Backend
 {
-    public class ApplicationDbContext : DbContext
+    public class MqttDbContext : DbContext
     {
-        public ApplicationDbContext(IServiceProvider serviceProvider)
-            : base(serviceProvider.GetRequiredService<DbContextOptions<ApplicationDbContext>>()) { }
+        public MqttDbContext(IServiceProvider serviceProvider)
+            : base(serviceProvider.GetRequiredService<DbContextOptions<MqttDbContext>>()) { }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(MqttDbContext).Assembly);
         }
 
         public DbSet<UserEntity> MqttUsers { get; set; }

@@ -9,8 +9,8 @@ namespace MQTTServer.Backend
 {
     public class UserStore : IMqttUserStore
     {
-        private readonly ApplicationDbContext _dbContext;
-        public UserStore(ApplicationDbContext dbContext)
+        private readonly MqttDbContext _dbContext;
+        public UserStore(MqttDbContext dbContext)
         {
             _dbContext = dbContext;
         }

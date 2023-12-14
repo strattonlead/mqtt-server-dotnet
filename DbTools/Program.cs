@@ -6,7 +6,7 @@ using MQTTServer.Backend;
 var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices(services =>
 {
-    services.AddDbContext<ApplicationDbContext>(options =>
+    services.AddDbContext<MqttDbContext>(options =>
     {
         options.UseNpgsql("pg");
 

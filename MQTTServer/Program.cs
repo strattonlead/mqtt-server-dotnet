@@ -52,7 +52,7 @@ builder.Services.AddScoped<MqttEventHandler>();
 builder.Services.AddScoped<UserProvider>();
 builder.Services.AddScoped<TenantProvider>();
 builder.Services.AddScoped<IMqttUserStore, UserStore>();
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddDbContext<MqttDbContext>(options =>
 {
     if (usePostgres)
     {
@@ -93,7 +93,7 @@ var app = builder.Build();
 if (usePostgres)
 {
     using (var scope = app.Services.CreateScope())
-    using (var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>())
+    using (var dbContext = scope.ServiceProvider.GetRequiredService<MqttDbContext>())
     {
         dbContext.Database.Migrate();
     }
