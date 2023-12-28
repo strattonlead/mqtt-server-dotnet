@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using MQTTServer.Backend.Entities;
 using System;
 using System.Collections.Generic;
@@ -12,10 +13,14 @@ namespace MQTTServer.Backend
 {
     public class MqttUserStore : IMqttUserStore
     {
+        private readonly IDbContextFactory<MqttDbContext> _dbContextFactory;
         private readonly MqttDbContext _dbContext;
-        public MqttUserStore(MqttDbContext dbContext)
+        private readonly MqttUserStoreOptions _options;
+        public MqttUserStore(IServiceProvider serviceProvider)
         {
-            _dbContext = dbContext;
+            _dbContextFactory = serviceProvider.GetRequiredService<IDbContextFactory<MqttDbContext>>();
+            _dbContext = serviceProvider.GetRequiredService<MqttDbContext>();
+            _options = serviceProvider.GetService<MqttUserStoreOptions>();
         }
 
         #region IMqttUserStore
@@ -28,19 +33,29 @@ namespace MQTTServer.Backend
         public async Task<bool> CanAuthenticateAsync(string username, string password)
         {
             var hash = _hash(password);
-            return await _dbContext.MqttUsers.AnyAsync(x => x.UserName == username && x.Password == hash);
+            return await UseDbContextAsync(async dbContext =>
+            {
+                return await dbContext.MqttUsers.AnyAsync(x => x.UserName == username && x.Password == hash);
+            });
         }
 
         public async Task<MqttUserEntity> FindByUsernameAsync(string username)
         {
-            var user = await _dbContext.MqttUsers.FirstOrDefaultAsync(x => x.UserName == username);
-            return _loadTopics(user);
+            return await UseDbContextAsync(async dbContext =>
+            {
+                var user = await _dbContext.MqttUsers.FirstOrDefaultAsync(x => x.UserName == username);
+                return _loadTopics(dbContext, user);
+            });
+
         }
 
         public MqttUserEntity FindById(long? userId)
         {
-            var user = _dbContext.MqttUsers.Find(userId);
-            return _loadTopics(user);
+            return UseDbContext(dbContext =>
+            {
+                var user = dbContext.MqttUsers.Find(userId);
+                return _loadTopics(dbContext, user);
+            });
         }
 
         public async Task<MqttUserEntity> CreateAsync(string username, string password, IList<string> publishTopics, IList<string> subscribeTopics, long? tenantId = null, IDictionary<string, string> customProperties = null, CancellationToken cancellationToken = default)
@@ -62,30 +77,73 @@ namespace MQTTServer.Backend
 
         public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
         {
-            var user = FindById(id);
-            if (user != null)
-            {
-                _dbContext.Remove(user);
-                await _dbContext.SaveChangesAsync(cancellationToken);
-            }
+            await UseDbContextAsync(async dbContext =>
+           {
+               var user = _dbContext.MqttUsers.Find(id);
+               if (user != null)
+               {
+                   _dbContext.Remove(user);
+                   await _dbContext.SaveChangesAsync(cancellationToken);
+               }
+           });
         }
 
         #endregion
 
         #region Helpers
 
-        private MqttUserEntity _loadTopics(MqttUserEntity user)
+        protected void UseDbContext(Action<MqttDbContext> action)
+        {
+            using (var dbContext = _dbContext)
+            {
+                action(dbContext);
+            }
+        }
+
+        protected TResult UseDbContext<TResult>(Func<MqttDbContext, TResult> func)
+        {
+            using (var dbContext = _dbContext)
+            {
+                return func(dbContext);
+            }
+        }
+
+        protected async Task UseDbContextAsync(Func<MqttDbContext, Task> func)
+        {
+            if (_options != null && _options.UseDbContextFactory)
+            {
+                using (var dbContext = _dbContextFactory.CreateDbContext())
+                {
+                    await func(dbContext);
+                }
+            }
+            await func(_dbContext);
+        }
+
+        protected async Task<TResult> UseDbContextAsync<TResult>(Func<MqttDbContext, Task<TResult>> func)
+        {
+            if (_options != null && _options.UseDbContextFactory)
+            {
+                using (var dbContext = _dbContextFactory.CreateDbContext())
+                {
+                    return await func(dbContext);
+                }
+            }
+            return await func(_dbContext);
+        }
+
+        private MqttUserEntity _loadTopics(MqttDbContext dbContext, MqttUserEntity user)
         {
             if (user != null)
             {
                 if (user.PublishTopics == null)
                 {
-                    _dbContext.Entry(user).Collection(x => x.PublishTopics).Load();
+                    dbContext.Entry(user).Collection(x => x.PublishTopics).Load();
                 }
 
                 if (user.SubscribeTopics == null)
                 {
-                    _dbContext.Entry(user).Collection(x => x.SubscribeTopics).Load();
+                    dbContext.Entry(user).Collection(x => x.SubscribeTopics).Load();
                 }
             }
             return user;
@@ -101,6 +159,22 @@ namespace MQTTServer.Backend
         }
 
         #endregion
+    }
+
+    public class MqttUserStoreOptions
+    {
+        public bool UseDbContextFactory { get; set; }
+    }
+
+    public class MqttUserStoreOptionsBuilder
+    {
+        internal MqttUserStoreOptions Options { get; set; } = new MqttUserStoreOptions();
+
+        public MqttUserStoreOptionsBuilder UseDbContextFactory()
+        {
+            Options.UseDbContextFactory = true;
+            return this;
+        }
     }
 
     public interface IMqttUserStore

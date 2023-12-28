@@ -5,14 +5,14 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
       <PackageId>CreateIf.MqttServer.Backend</PackageId>
-      <Version>1.0.3</Version>
-      <PackageVersion>1.0.3</PackageVersion>
+      <Version>1.0.4</Version>
+      <PackageVersion>1.0.4</PackageVersion>
       <Authors>Arndt Bieberstein</Authors>
       <Company>createIF Labs GmbH</Company>
       <EnablePackageValidation>true</EnablePackageValidation>
       <GenerateDocumentationFile>True</GenerateDocumentationFile>
       <NoWarn>$(NoWarn);CS1591</NoWarn>
-      <PackageTags>Mqtt, Postgres, Efcore</PackageTags>
+      <PackageTags>Mqtt, Postgres, EFcore</PackageTags>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
       <Description>Mqtt Backend entities and context</Description>
       <PackageProjectUrl>https://github.com/strattonlead/mqtt-server-dotnet</PackageProjectUrl>
